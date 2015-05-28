@@ -45,15 +45,17 @@ function [model,o_p] = guru_nnTrain_resilient(model,X,Y)
         % Note: don't change Y!!  We don't want to model the noise...
     end;
 
-    %% Determine model error based on that update
     if guru_getfield(model, 'dropout', 0) > 0
-        wOrig = model.Weights;
-        cOrig = model.Conn;
-        idxHOut = find(rand(nHidden,1)<model.dropout);
-        model.Conn(nInputs+idxHOut, 1:nInputs) = false;
-        model.Weights(nInputs+idxHOut, 1:nInputs) = 0;
-        model.Conn(nInputs+nHidden+[1:nOutputs], nInputs+idxHOut) = false;
-        model.Weights(nInputs+nHidden+[1:nOutputs], nInputs+idxHOut) = 0;
+        % Drop out hidden => output connections.
+        % This should work for autencoder and classifier both.
+        whichHid = find(rand(nHidden,1) < model.dropout); % select some pct to drop out
+        idxHid = nInputs + whichHid;
+        idxOut = nInputs + nHidden + [1:nOutputs];
+
+        cOrig = model.Conn(idxOut, idxHid);
+        wOrig = model.Weights(idxOut, idxHid);
+        model.Conn(idxOut, idxHid) = false;
+        model.Weights(idxOut, idxHid) = 0;
     end;
 
     % Determine model error
@@ -64,8 +66,8 @@ function [model,o_p] = guru_nnTrain_resilient(model,X,Y)
     end;
 
     if guru_getfield(model, 'dropout', 0) > 0
-      model.Conn = cOrig;
-      model.Weights = wOrig;
+      model.Conn(idxOut, idxHid) = cOrig;
+      model.Weights(idxOut, idxHid) = wOrig;
     end;
 
     % Change error only if there are no NaN

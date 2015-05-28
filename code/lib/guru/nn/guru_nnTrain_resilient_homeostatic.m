@@ -1,11 +1,11 @@
 function [model,o_p] = guru_nnTrain_resilient_homeostatic(model,X,Y)
 % Train with basic backprop, in batch mode
 
-  nInputs   = size(X,1)-1;
+  nInputs   = size(X,1);
   nDatapts  = size(X,2);
   nUnits    = size(model.Weights,1);
   nOutputs  = size(Y,1);
-  nHidden   = nUnits - nInputs - nOutputs -1; % extra one is bias
+  nHidden   = nUnits - nInputs - nOutputs; % extra one is bias
 
   model.err = zeros([model.MaxIterations nDatapts]);
 
@@ -47,13 +47,16 @@ function [model,o_p] = guru_nnTrain_resilient_homeostatic(model,X,Y)
 
     %% Determine model error based on that update
     if isfield(model,'dropout') && model.dropout>0
-        wOrig = model.Weights;
-        cOrig = model.Conn;
-        idxHOut = find(rand(nHidden,1)<model.dropout);
-        model.Conn(   nInputs+1+idxHOut, 1:(nInputs+1)) = false;
-        model.Weights(nInputs+1+idxHOut, 1:(nInputs+1)) = 0;
-        model.Conn(   nInputs+1+nHidden+[1:nOutputs], nInputs+1+idxHOut) = false;
-        model.Weights(nInputs+1+nHidden+[1:nOutputs], nInputs+1+idxHOut) = 0;
+        % Drop out hidden => output connections.
+        % This should work for autencoder and classifier both.
+        whichHid = find(rand(nHidden,1) < model.dropout); % select some pct to drop out
+        idxHid = whichHid + [1:nInputs];
+        idxOut = nInputs + nHidden + [1:nOutputs]
+
+        cOrig = model.Conn(idxOut, idxHid);
+        wOrig = model.Weights(idxOut, idxHid);
+        model.Conn(idxOut, idxHid) = false;
+        model.Weights(idxOut, idxHid) = 0;
     end;
 
     % Determine model error
@@ -63,8 +66,8 @@ function [model,o_p] = guru_nnTrain_resilient_homeostatic(model,X,Y)
     end;
 
     if (isfield(model, 'dropout') && model.dropout>0)
-      model.Conn = cOrig;
-      model.Weights = wOrig;
+      model.Conn(idxOut, idxHid) = cOrig;
+      model.Weights(idxOut, idxHid) = wOrig;
     end;
 
     % Change error only if there are no NaN
@@ -113,18 +116,18 @@ function [model,o_p] = guru_nnTrain_resilient_homeostatic(model,X,Y)
         model.Weights = model.Weights .* (1-model.lambda);
     end;
     if isfield(model, 'avgact2')
-        huidx = nInputs+1+[1:nHidden];
+        huidx = nInputs + [1:nHidden];
         huacts = opc(huidx,:);
         meanact = mean(abs(huacts),2);
 
         huidx = huidx(meanact~=0);
         meanact = meanact(meanact~=0);
         error('avgact2 homeostatic training option NYI')
-        model.Weights(huidx,1:(nInputs+1)) = model.avgact * model.Weights(huidx,1:(nInputs+1)) ./ repmat(meanact,[1 nInputs+1]);
+        model.Weights(huidx, 1:nInputs) = model.avgact * model.Weights(huidx, 1:nInputs) ./ repmat(meanact, [1 nInputs]);
 
     % see eqn 4&5
     elseif isfield(model, 'avgact') %Sullivan & de sa (2006)
-        huidx = nInputs+1+[1:nHidden];
+        huidx = nInputs + [1:nHidden];
         huacts = opc(huidx,:);
         meanact = mean(abs(huacts),2);
 
@@ -136,28 +139,28 @@ function [model,o_p] = guru_nnTrain_resilient_homeostatic(model,X,Y)
 
         %if mean(avgact(find(avgact))) > model.avgact, error('???'); end;
         huidx = huidx(meanact~=0); actnorm=actnorm(meanact~=0);
-        model.Weights(huidx,1:(nInputs+1)) = model.Weights(huidx,1:(nInputs+1)) ./ repmat(actnorm,[1 nInputs+1]);
+        model.Weights(huidx, 1:nInputs) = model.Weights(huidx, 1:nInputs) ./ repmat(actnorm,[1 nInputs]);
 
     elseif isfield(model, 'meanwt')
-        huidx = nInputs+1+[1:nHidden];
-        huwts = model.Weights(huidx,1:(nInputs+1));
+        huidx = nInputs + [1:nHidden];
+        huwts = model.Weights(huidx, 1:nInputs);
         meanwt = mean(abs(huwts),2);
 
         huidx = huidx(meanwt~=0);
         meanwt = meanwt(meanwt~=0);
-        model.Weights(huidx,1:(nInputs+1)) = model.meanwt * model.Weights(huidx,1:(nInputs+1)) ./ repmat(meanwt,[1 nInputs+1]);
+        model.Weights(huidx, 1:nInputs) = model.meanwt * model.Weights(huidx, 1:nInputs) ./ repmat(meanwt,[1 nInputs]);
     elseif isfield(model, 'totwt')
-        huidx = nInputs+1+[1:nHidden];
-        huwts = model.Weights(huidx,1:(nInputs+1));
+        huidx = nInputs + [1:nHidden];
+        huwts = model.Weights(huidx, 1:nInputs);
         totwt = sum(abs(huwts),2);
 
         huidx = huidx(totwt~=0);
         totwt = totwt(totwt~=0);
-        model.Weights(huidx,1:(nInputs+1)) = model.totwt * model.Weights(huidx,1:(nInputs+1)) ./ repmat(totwt,[1 nInputs+1]);
+        model.Weights(huidx, 1:nInputs) = model.totwt * model.Weights(huidx, 1:nInputs) ./ repmat(totwt,[1 nInputs]);
 
     elseif isfield(model, 'stdact')
         inidx = [1:nInputs];
-        huidx = nInputs+1+[1:nHidden];
+        huidx = nInputs + [1:nHidden];
         inacts = opc(inidx,:);
         huacts = opc(huidx,:);
         std_inact = std(abs(inacts),[],2);
