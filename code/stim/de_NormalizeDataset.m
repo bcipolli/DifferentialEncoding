@@ -37,18 +37,18 @@ function dset = de_NormalizeDataset(dset, mSets)
   % Z-score: across all images and pixels at once
   elseif (isfield(mSets.ac, 'zscore'))
     if (islogical(mSets.ac.zscore)), % will produce mean 0, std 0.1 data at each pixel
-      zs.delta_mean = mean(dset.X, 1);
-      zs.delta_std  = 0.1 ./ std(dset.X);
+      zs.delta_mean = mean(dset.X(:));
+      zs.delta_std  = 0.1 ./ std(dset.X(:));
     elseif isnumeric(mSets.ac.zscore)
-      zs.delta_mean = mean(dset.X);
-      zs.delta_std  = mSets.ac.zscore ./ std(dset.X, [], 1);
+      zs.delta_mean = mean(dset.X(:));
+      zs.delta_std  = mSets.ac.zscore ./ std(dset.X(:));
     elseif isstruct(mSets.ac.zscore)
       zs = mSets.ac.zscore;
     else
       error('Unrecognized type for zscore property.');
     end;
 
-    dset.X  = (dset.X - repmat(zs.delta_mean, [size(dset.X,1) 1])) .* repmat(zs.delta_std, [size(dset.X,1) 1]);
+    dset.X  = (dset.X - zs.delta_mean) .* zs.delta_std;
     dset.zs = zs;
 
   % Prepare to put into minmax range by subtracting out midpoint of original [0 1] range
