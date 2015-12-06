@@ -1,10 +1,14 @@
-function [model,o_p] = guru_nnTrain_resilient(model,X,Y)
+function [model,o_p] = guru_nnTrain_resilient(model,X_trn,Y_trn,X_tst,Y_tst)
 % Train with basic backprop, in batch mode
 
-  nInputs   = size(X,1)-1;
-  nDatapts  = size(X,2);
-  nUnits    = size(model.Weights,1);
-  nOutputs  = size(Y,1);
+  if any(size(X_trn) - size(X_tst))
+    error('Train and test set sizes are different; this is currently unsupported.');
+  end;
+
+
+  nInputs   = size(X_trn, 1)-1;
+  nUnits    = size(model.Weights, 1);
+  nOutputs  = size(Y_trn, 1);
   nHidden   = nUnits - nInputs - nOutputs - 1;
 
   if guru_getfield(model, 'Dec', 0) >= 0.1 && guru_getfield(model, 'dropout', 0)
@@ -12,15 +16,15 @@ function [model,o_p] = guru_nnTrain_resilient(model,X,Y)
              'I suggest setting model.Dec = 0.025']);
   end;
 
+  nDatapts  = size(X_tst, 2);
   model.err = zeros([model.MaxIterations nDatapts]);
-
   % Only do if necessary, for memory reasons
   if (nargout>1)
       o_p       = zeros([model.MaxIterations nUnits nDatapts]);
   end;
 
   if isfield(model,'AvgError')
-    model.Error = model.AvgError * numel(Y);
+    model.Error = model.AvgError * numel(Y_tst);
   end;
 
   model.Eta = sparse(guru_getfield(model, 'Eta', model.EtaInit) .* model.Conn);
@@ -29,15 +33,15 @@ function [model,o_p] = guru_nnTrain_resilient(model,X,Y)
   lastGrad  = spalloc(size(model.Conn,1), size(model.Conn,2), nnz(model.Conn));
 
   if (isfield(model, 'noise_input'))
-    X_orig = X;
-    noise_std = model.noise_input * std(abs(X(:)));
+    X_orig = X_trn;
+    noise_std = model.noise_input * std(abs(X_trn(:)));
   end;
 
   for ip = 1:model.MaxIterations
     % Inject noise into the input
     if any(guru_getfield(model, 'noise_input', 0))
-        noise_sig = noise_std * randn(size(X)) / 0.7982; % mean 0 noise
-        X = X_orig + noise_sig;
+        noise_sig = noise_std * randn(size(X_trn)) / 0.7982; % mean 0 noise
+        X_trn = X_orig + noise_sig;
         if ip == 1
             noise_level = mean(abs(noise_sig(:)./X_orig(:)));
             fprintf('%f noise is %.2f%% of activation.\n', model.noise_input, 100*noise_level);
@@ -57,10 +61,11 @@ function [model,o_p] = guru_nnTrain_resilient(model,X,Y)
     end;
 
     % Determine model error
+    [~,grad]             =emo_backprop(X_trn, Y_trn, model.Weights, model.Conn, model.XferFn, model.errorType, model.Pow );
     if (nargout>1)
-        [model.err(ip,:),grad, o_p(ip,:,:)]=emo_backprop(X, Y, model.Weights, model.Conn, model.XferFn, model.errorType, model.Pow );
+      [o_p(ip,:,:), model.err(ip,:)] = guru_nnExec(model, X_tst, Y_tst);
     else
-        [model.err(ip,:),grad]             =emo_backprop(X, Y, model.Weights, model.Conn, model.XferFn, model.errorType, model.Pow );
+      [o_p(ip,:,:), model.err(ip,:)] = guru_nnExec(model, X_tst, Y_tst);
     end;
 
     if guru_getfield(model, 'dropout', 0) > 0
@@ -101,7 +106,7 @@ function [model,o_p] = guru_nnTrain_resilient(model,X,Y)
       break;
     end;
 
-    if (ismember(10, model.debug)), fprintf('[%4d]: err = %6.4e\n', ip, currErr/numel(Y)); end;
+    if (ismember(10, model.debug)), fprintf('[%4d]: err = %6.4e\n', ip, currErr/numel(Y_tst)); end;
 
     % Adjust the weights
     %guru_assert(~any(isnan(grad(:))));

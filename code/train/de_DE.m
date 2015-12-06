@@ -35,7 +35,7 @@ function [model] = de_DE(model)
 
     % Train the model on the training images
     if ~isfield(model.ac, 'retrain_on_task_images') || ~model.ac.retrain_on_task_images
-        [model.ac] = guru_nnTrainAC(model.ac, model.data.train.X);
+        [model.ac] = guru_nnTrainAC(model.ac, model.data.train.X, model.data.test.X);
         fprintf('| e_AC(%5d): %6.5e',size(model.ac.err,1),model.ac.avgErr(end));
 
     % Train the model on the classification images (if requested)

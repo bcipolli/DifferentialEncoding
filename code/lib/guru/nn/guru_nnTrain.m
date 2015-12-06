@@ -1,4 +1,4 @@
-function [model,o_p] = guru_nnTrain(model,X,Y)
+function [model,o_p] = guru_nnTrain(model,X_trn,Y_trn,X_tst,Y_tst)
 %function [model,o_p] = guru_trainNN(model,X,Y)
 %  Train a neural network using backpropogation
 %
@@ -12,6 +12,7 @@ function [model,o_p] = guru_nnTrain(model,X,Y)
 %    .err : matrix of errors: rows=training steps, cols=training examples
 %
 %  o_p    : calculated output at LAST step.
+  X = X_trn; Y=Y_trn;  % hacks until later.
 
   if (~isfield(model, 'TrainMode')), model.TrainMode = 'batch'; end;
   try, startTime = toc; catch err, tic; startTime = toc; end;
@@ -32,7 +33,7 @@ function [model,o_p] = guru_nnTrain(model,X,Y)
         else,           [model,o_p] = guru_nnTrain_online(model,X,Y); end;
 
       case 'resilient'
-        if (nargout<2), [model]     = guru_nnTrain_resilient(model,X,Y);
+        if (nargout<2), [model]     = guru_nnTrain_resilient(model,X_trn,Y_trn,X_tst,Y_tst);
         else,           [model,o_p] = guru_nnTrain_resilient(model,X,Y); end;
 
       case 'resilient-homeostatic'
