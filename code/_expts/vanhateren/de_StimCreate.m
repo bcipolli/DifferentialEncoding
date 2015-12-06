@@ -214,6 +214,13 @@ function [normalized_patch, is_good] = validate_and_normalize_patch(img_patch, o
     normalized_patch = (img_patch - min(img_patch(:))) / (max(img_patch(:)) - min(img_patch(:)));
     is_good = ~any(isnan(normalized_patch(:)));
 
+function patch = getImagePatch(img, cpt, outSz)
+    pixrange = round([(cpt(1)  -outSz(1)/2)   (cpt(2)  -outSz(2)/2) ; ...
+                      (cpt(1)-1+outSz(1)/2)   (cpt(2)-1+outSz(2)/2) ]);
+
+    patch = img(pixrange(1,1):pixrange(2,1), pixrange(1,2):pixrange(2,2));
+    guru_assert(~any(size(patch) - outSz));
+
     img_std = std(normalized_patch(:));
     if img_std < min_variance
       is_good = false;
