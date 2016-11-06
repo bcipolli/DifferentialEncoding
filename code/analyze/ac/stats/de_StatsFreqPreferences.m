@@ -12,7 +12,7 @@ function [stats] = de_StatsFreqPreferences(mss, varargin)
   % Create a dataset to test network on.
   [~, dset] = de_MakeDataset('gratings', 'all', '', {mSets.data.train.opt{:}, ...
                              'nthetas', n_orients, 'nphases', n_phases, 'nfreqs', n_freqs, ...
-                             'nInput', mSets.nInput}, false, false);  % don't visualize, but do force re-creation.
+                             'nInput', mSets.nInput}, false, true);  % don't visualize, but do force re-creation.
   mSets.ac.zscore = mSets.ac.zscore;
   dset = de_NormalizeDataset(dset, mSets);
 
@@ -75,7 +75,7 @@ function [stats] = de_StatsFreqPreferences(mss, varargin)
         % Note the "abs" here for mean; if I average all responses,
         % since they can be negative, I generally get zero.
         % So, average the response magnitudes - more interesting.
-        stats.(prop).mean{si}(mi,:,:) = mean(abs(resps_by_prop), 3);
+        stats.(prop).mean{si}(mi,:,:) = mean((resps_by_prop), 3);
         stats.(prop).std{si}(mi,:,:) = std(resps_by_prop, [], 3);
       end;
 

@@ -11,14 +11,19 @@ function figs = de_PlotFreqPreferences(mSets, stats)
       prop_vals = dset.([guru_iff(strcmp(prop, 'freq'), 'cycle', prop) 's']);
       n_prop_vals = length(prop_vals);
 
-      for val={'mean', 'std'}
+      for val={'mean', 'std', 'coeffOfVariation'}
         val=val{1};
 
         norm_imgs = nan(n_sigmas, mSets.nInput(1), mSets.nInput(2));
         distn = nan(n_sigmas, n_prop_vals);
 
         for si=1:n_sigmas
-          [~, max_resp_idx] = max(stats.(prop).(val){si}, [], 3);
+          if strcmp(val, 'coeffOfVariation')
+            vals = stats.(prop).std{si} ./ stats.(prop).mean{si};
+          else
+            vals = stats.(prop).(val){si};
+          end;
+          [~, max_resp_idx] = max(abs(vals), [], 3);
           n_models = size(max_resp_idx, 1);
           imgs = reshape(max_resp_idx, [n_models * mSets.hpl(si), mSets.nInput]);
 
